@@ -3,10 +3,19 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import { Pole } from './Pole';
 import { OrbitingText } from './OrbitingText';
 
-// --- ANIMATION PARAMETERS ---
-const TEXT_SINE_WAVES_COUNT = 3.0;
-const TEXT_AMPLITUDE_AS_WIDTH_PERCENTAGE = 8; // Horizontal amplitude
-const TEXT_PHASE_SHIFT_RADIANS = 0; // Set to 0 to match the red line's sine wave
+// --- SCENE & SCALING CONFIGURATION ---
+const SCROLL_HEIGHT_VH = 800; // New extended scroll height
+const BASE_SCROLL_HEIGHT_VH = 500; // Original scroll height for reference
+const SCALING_FACTOR = SCROLL_HEIGHT_VH / BASE_SCROLL_HEIGHT_VH;
+
+// --- BASE ANIMATION PARAMETERS ---
+const BASE_SINE_WAVES_COUNT = 3.0;
+const BASE_AMPLITUDE_PERCENTAGE = 8; // Horizontal amplitude as a percentage of scene width
+
+// --- SCALED ANIMATION PARAMETERS ---
+const TEXT_SINE_WAVES_COUNT = BASE_SINE_WAVES_COUNT * SCALING_FACTOR;
+const TEXT_AMPLITUDE_AS_WIDTH_PERCENTAGE = BASE_AMPLITUDE_PERCENTAGE * SCALING_FACTOR;
+const TEXT_PHASE_SHIFT_RADIANS = 0;
 
 const ScrollAnimationScene: React.FC = () => {
     const prefersReducedMotion = usePrefersReducedMotion();
@@ -15,12 +24,47 @@ const ScrollAnimationScene: React.FC = () => {
     const animationFrameId = useRef<number | null>(null);
 
     const [textHeight, setTextHeight] = useState(0);
+    const [textPath, setTextPath] = useState('');
 
     // Measure the text component's height once it's rendered
     useLayoutEffect(() => {
         if (textRef.current) {
             setTextHeight(textRef.current.offsetHeight);
         }
+    }, []);
+
+    // Calculate the SVG path for the sine wave
+    useLayoutEffect(() => {
+        const calculateAndSetPath = () => {
+            const sceneElement = sceneRef.current;
+            if (!sceneElement) return;
+
+            const sceneWidth = sceneElement.offsetWidth;
+            const viewportHeight = window.innerHeight;
+
+            const amplitude = (TEXT_AMPLITUDE_AS_WIDTH_PERCENTAGE / 100) * sceneWidth;
+            const frequency = (TEXT_SINE_WAVES_COUNT * 2 * Math.PI) / viewportHeight;
+
+            let pathData = '';
+            const pathSteps = 200; // Increase for a smoother curve
+
+            for (let i = 0; i <= pathSteps; i++) {
+                const y = (i / pathSteps) * viewportHeight;
+                const x = amplitude * Math.sin(frequency * y + TEXT_PHASE_SHIFT_RADIANS) + sceneWidth / 2;
+
+                if (i === 0) {
+                    pathData += `M ${x} ${y}`;
+                } else {
+                    pathData += ` L ${x} ${y}`;
+                }
+            }
+            setTextPath(pathData);
+        };
+        
+        calculateAndSetPath();
+        window.addEventListener('resize', calculateAndSetPath);
+        return () => window.removeEventListener('resize', calculateAndSetPath);
+
     }, []);
 
 
@@ -74,8 +118,20 @@ const ScrollAnimationScene: React.FC = () => {
     }, [prefersReducedMotion, textHeight]);
 
     return (
-        <section ref={sceneRef} className="relative h-[500vh] w-full">
+        <section 
+            ref={sceneRef} 
+            className="relative w-full"
+            style={{ height: `${SCROLL_HEIGHT_VH}vh` }}
+        >
             <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center">
+                <svg width="100%" height="100%" className="absolute top-0 left-0" aria-hidden="true">
+                    <path
+                        d={textPath}
+                        stroke="rgba(239, 68, 68, 0.4)" // semi-transparent red
+                        strokeWidth="2"
+                        fill="none"
+                    />
+                </svg>
                 <div className="relative w-full h-full">
                    <Pole />
                    <OrbitingText ref={textRef} isMotionReduced={prefersReducedMotion} />
