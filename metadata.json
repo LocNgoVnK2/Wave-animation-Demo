@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Scroll-Driven Sine Wave Animation",
+  "description": "A React component that animates an element along a sine wave path with rotation based on scroll position, demonstrating advanced CSS transforms and scroll-linked animations.",
+  "requestFramePermissions": []
+}
